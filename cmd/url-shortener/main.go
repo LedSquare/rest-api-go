@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"os"
 	"rest-api-go/internal/config"
+	"rest-api-go/internal/lib/logger/sl"
+	"rest-api-go/internal/storage/sqlite"
 )
 
 const (
@@ -19,6 +21,16 @@ func main() {
 
 	log.Info("Starting app", slog.String("env", config.Env))
 	log.Debug("Debug mod is on")
+
+	storage, err := sqlite.New(config.StoragePath)
+	if err != nil {
+		log.Error("Failed init storage", sl.Error(err))
+		os.Exit(1)
+	}
+
+	_ = storage
+
+	os.Exit(0)
 }
 
 func setupLogger(env string) *slog.Logger {
