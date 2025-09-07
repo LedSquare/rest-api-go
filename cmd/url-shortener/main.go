@@ -4,8 +4,13 @@ import (
 	"log/slog"
 	"os"
 	"rest-api-go/internal/config"
+	middlewareLogger "rest-api-go/internal/http/middleware/logger"
+	slogpretty "rest-api-go/internal/lib/logger/handlers"
 	"rest-api-go/internal/lib/logger/sl"
 	"rest-api-go/internal/storage/sqlite"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 const (
@@ -22,18 +27,19 @@ func main() {
 	log.Info("Starting app", slog.String("env", config.Env))
 	log.Debug("Debug mod is on")
 
-	storage, err := sqlite.New(config.StoragePath)
+	_, err := sqlite.New(config.StoragePath)
 	if err != nil {
 		log.Error("Failed init storage", sl.Error(err))
 		os.Exit(1)
 	}
 
-	id, err := storage.SaveUrl("http://google.com/some", "google")
-	if err != nil {
-		log.Error("failed to save", sl.Error(err))
-		os.Exit(1)
-	}
-	log.Info("Id is saved", slog.Int64("id", id))
+	router := chi.NewRouter()
+
+	router.Use(middleware.RequestID)
+	router.Use(middleware.RealIP)
+	router.Use(middlewareLogger.New(log))
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.URLFormat)
 
 	os.Exit(0)
 }
@@ -42,9 +48,7 @@ func setupLogger(env string) *slog.Logger {
 	var log *slog.Logger
 	switch env {
 	case envLocal:
-		log = slog.New(slog.NewTextHandler(
-			os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug},
-		))
+		log = setupPrettySlog()
 	case envDev:
 		log = slog.New(slog.NewTextHandler(
 			os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug},
@@ -56,4 +60,16 @@ func setupLogger(env string) *slog.Logger {
 	}
 
 	return log
+}
+
+func setupPrettySlog() *slog.Logger {
+	opts := slogpretty.PrettyHandlerOptions{
+		SlogOpts: &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		},
+	}
+
+	handler := opts.NewPrettyHandler(os.Stdout)
+
+	return slog.New(handler)
 }

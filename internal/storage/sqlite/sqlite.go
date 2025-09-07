@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"rest-api-go/internal/storage"
 
@@ -39,10 +40,10 @@ func New(storagePath string) (*Storage, error) {
 	return &Storage{db: db}, nil
 }
 
-func (selfStorage *Storage) SaveUrl(urlToSave string, alias string) (int64, error) {
+func (s *Storage) SaveUrl(urlToSave string, alias string) (int64, error) {
 	const action = "storage.sqlite.SaveUrl"
 
-	stmt, err := selfStorage.db.Prepare("INSERT INTO url(url, alias) VALUES(?, ?)")
+	stmt, err := s.db.Prepare("INSERT INTO url(url, alias) VALUES(?, ?)")
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", action+"_prepare", err)
 	}
@@ -61,4 +62,25 @@ func (selfStorage *Storage) SaveUrl(urlToSave string, alias string) (int64, erro
 		return 0, fmt.Errorf("%s: %w", action+"_id", err)
 	}
 	return id, nil
+}
+
+func (s *Storage) GetUrl(alias string) (string, error) {
+	const action = "storage.sqlite.GetUrl"
+
+	stmt, err := s.db.Prepare("SELECT url FROM url WHERE alias = ?")
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", action+"_prepare", err)
+	}
+
+	var resultUrl string
+	err = stmt.QueryRow(alias).Scan(&resultUrl)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", storage.ErrURLNotFound
+		}
+
+		return "", fmt.Errorf("%s: %w", action+"query_row_scan", err)
+	}
+
+	return resultUrl, nil
 }
