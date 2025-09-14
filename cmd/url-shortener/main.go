@@ -1,9 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"rest-api-go/internal/config"
+	"rest-api-go/internal/http/handlers/url/save"
 	middlewareLogger "rest-api-go/internal/http/middleware/logger"
 	slogpretty "rest-api-go/internal/lib/logger/handlers"
 	"rest-api-go/internal/lib/logger/sl"
@@ -27,7 +30,7 @@ func main() {
 	log.Info("Starting app", slog.String("env", config.Env))
 	log.Debug("Debug mod is on")
 
-	_, err := sqlite.New(config.StoragePath)
+	storage, err := sqlite.New(config.StoragePath)
 	if err != nil {
 		log.Error("Failed init storage", sl.Error(err))
 		os.Exit(1)
@@ -41,7 +44,23 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
-	os.Exit(0)
+	router.Post("/url", save.New(log, storage))
+
+	server := &http.Server{
+		Addr:         config.Address,
+		Handler:      router,
+		ReadTimeout:  config.Timeout,
+		WriteTimeout: config.Timeout,
+		IdleTimeout:  config.IdleTimeout,
+	}
+
+	log.Info("Starting server", slog.String("address", config.Address))
+
+	if err := server.ListenAndServe(); err != nil {
+		log.Error("Failed to start server")
+	}
+
+	log.Error("Server is stopped")
 }
 
 func setupLogger(env string) *slog.Logger {
@@ -72,4 +91,38 @@ func setupPrettySlog() *slog.Logger {
 	handler := opts.NewPrettyHandler(os.Stdout)
 
 	return slog.New(handler)
+}
+
+func maxFreqSum(s string) int {
+	vowels := map[rune]bool{
+		'a': true,
+		'e': true,
+		'i': true,
+		'o': true,
+		'u': true,
+	}
+
+	freq := make(map[rune]int)
+
+	for _, ch := range s {
+		freq[ch]++
+	}
+
+	fmt.Println(freq)
+	maxVowelFreq := 0
+	maxConsonantFreq := 0
+
+	for ch, count := range freq {
+		if vowels[ch] {
+			if count > maxVowelFreq {
+				maxVowelFreq = count
+			}
+		} else {
+			if count > maxConsonantFreq {
+				maxConsonantFreq = count
+			}
+		}
+	}
+
+	return maxVowelFreq + maxConsonantFreq
 }
