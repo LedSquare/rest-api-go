@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -91,38 +90,4 @@ func setupPrettySlog() *slog.Logger {
 	handler := opts.NewPrettyHandler(os.Stdout)
 
 	return slog.New(handler)
-}
-
-func maxFreqSum(s string) int {
-	vowels := map[rune]bool{
-		'a': true,
-		'e': true,
-		'i': true,
-		'o': true,
-		'u': true,
-	}
-
-	freq := make(map[rune]int)
-
-	for _, ch := range s {
-		freq[ch]++
-	}
-
-	fmt.Println(freq)
-	maxVowelFreq := 0
-	maxConsonantFreq := 0
-
-	for ch, count := range freq {
-		if vowels[ch] {
-			if count > maxVowelFreq {
-				maxVowelFreq = count
-			}
-		} else {
-			if count > maxConsonantFreq {
-				maxConsonantFreq = count
-			}
-		}
-	}
-
-	return maxVowelFreq + maxConsonantFreq
 }
